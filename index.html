@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Todo</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Todo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  button:focus { outline: none; }
+  html, body { height: 100%; margin: 0; background: #ffffff; color: #111; font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; }
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: #ffffff; border-top: 1px solid #e5e5e5; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .nav button { flex: 1; border: 0; background: none; padding: 14px 0; font-size: 15px; font-weight: 500; color: #8a8a8a; cursor: pointer; border-top: 2px solid transparent; margin-top: -1px; }
+  .nav button.active { color: #111; border-top-color: #111; }
+  .view { display: none; }
+  .view.active { display: block; }
+  #todo { height: 100%; }
+  .cal { height: 50%; box-sizing: border-box; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px; display: flex; flex-direction: column; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 8px; }
+  .cal-head .cal-title { font-size: 17px; font-weight: 600; padding: 4px 12px; }
+  .done-head { justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 8px; }
+  .cal-head button { border: 0; background: none; font-size: 20px; padding: 4px 12px; cursor: pointer; color: #111; }
+  .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+  .cal-week span { font-size: 12px; color: #8a8a8a; padding: 4px 0; }
+  .cal-grid { flex: 1; min-height: 0; grid-template-rows: repeat(6, 1fr); }
+  .cal-grid button { border: 0; background: none; font-size: 14px; color: #111; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .cal-grid button span { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .cal-grid button.out { color: #c4c4c4; }
+  .cal-grid button.sel span { background: #e2e2e2; color: #111; }
+  .cal-grid button.today span { background: #111; color: #fff; }
+  #todo.active { display: flex; flex-direction: column; }
+  .cal { flex: none; }
+  .cats { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 72px; flex: 1; min-height: 0; overflow-y: auto; }
+  .todo-list { list-style: none; margin: 0; padding: 4px 4px 2px 16px; }
+  .todo-list:empty { display: none; }
+  .todo-list li { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
+  .todo-text { flex: 1; min-width: 0; }
+  .todo-list li { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .todo-list li.dragging { position: relative; z-index: 5; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); padding-left: 8px; padding-right: 8px; margin: 0 -8px; }
+  .chk { flex: none; width: 18px; height: 18px; margin-top: 1px; padding: 0; border-radius: 50%; border: 2.5px solid var(--c, #bdbdbd); background: #ffffff; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 11px; line-height: 1; }
+  .chk.on { background: var(--c, #111); border-color: var(--c, #111); }
+  .todo-text.done .todo-title { color: #8a8a8a; text-decoration: line-through; }
+  .todo-title { font-size: 14px; font-weight: 500; color: #111; word-break: break-word; }
+  .todo-memo { font-size: 12px; color: #8a8a8a; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+  .sheet-body { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 16px; height: calc(100% - 24px); box-sizing: border-box; }
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  #memo-group.open { flex: 1 0 auto; }
+  .time-body { display: none; align-items: flex-end; gap: 8px; }
+  .group.open .time-body { display: flex; }
+  .time-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sublbl { font-size: 12px; color: #8a8a8a; }
+  .field.time { text-align: center; }
+  .time-dash { padding-bottom: 11px; color: #8a8a8a; }
+  .todo-time { font-size: 12px; color: #8a8a8a; margin-top: 2px; }
+  .repeat-body { display: none; flex-direction: column; gap: 10px; }
+  .group.open .repeat-body { display: flex; }
+  .days { display: flex; justify-content: space-between; gap: 4px; }
+  .day { flex: none; width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1px solid #e5e5e5; background: #ffffff; color: #111; font-size: 13px; cursor: pointer; }
+  .day.on { background: #111; border-color: #111; color: #ffffff; }
+  .sheet.editing #repeat-group { display: none; }
+  .sheet-body > * { flex-shrink: 0; }
+  .pill-label { display: flex; align-items: center; gap: 8px; }
+  .dot { flex: none; display: block; width: 10px; height: 10px; border-radius: 50%; }
+  .lbl-row { display: flex; align-items: center; justify-content: space-between; }
+  .memo-body { display: none; flex: 1; min-height: 0; flex-direction: column; }
+  .group.open .memo-body { display: flex; }
+  .switch { position: relative; flex: none; width: 40px; height: 24px; border: 0; border-radius: 999px; background: #d4d4d4; padding: 0; cursor: pointer; transition: background 0.2s ease; }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #ffffff; transition: transform 0.2s ease; }
+  .switch.on { background: #111; }
+  .switch.on::after { transform: translateX(16px); }
+  .lbl { font-size: 13px; font-weight: 500; color: #111; }
+  .field { border: 1px solid #e5e5e5; border-radius: 999px; padding: 10px 16px; font-family: inherit; font-size: 16px; color: #111; background: #ffffff; outline: none; width: 100%; box-sizing: border-box; }
+  .field:focus { border-color: #111; }
+  .field.memo { flex: 1; resize: none; min-height: 90px; border-radius: 12px; padding: 10px 12px; }
+  .save { border: 0; border-radius: 999px; background: #111; color: #fff; padding: 12px; font-size: 15px; font-weight: 500; cursor: pointer; }
+  .save:disabled { background: #d4d4d4; cursor: default; }
+  .pill { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%; background: #f0f0f0; color: #111; font-size: 13px; font-weight: 500; padding: 4px 4px 4px 16px; border-radius: 999px; }
+  .pill-add { width: 24px; height: 24px; border-radius: 50%; border: 0; background: #ffffff; color: #111; font-size: 17px; line-height: 1; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 20; }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; box-sizing: border-box; height: 72%; background: #ffffff; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12); transform: translateY(100%); transition: transform 0.3s ease; z-index: 21; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: #d4d4d4; margin: 10px auto; }
+  .sheet.actions { height: auto; max-height: 90%; overflow-y: auto; }
+  .picker { border: 1px solid #e5e5e5; border-radius: 12px; padding: 4px 8px 8px; }
+  .picker .cal-grid { flex: none; grid-template-rows: none; grid-auto-rows: 36px; }
+  .cal-grid button.dis { opacity: 0.35; pointer-events: none; }
+  .action-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 16px; }
+  .action-btn { border: 0; border-radius: 999px; background: #f0f0f0; color: #111; padding: 13px; font-size: 15px; font-weight: 500; cursor: pointer; }
+  .action-btn.danger { color: #d93025; }
+  #done.active { display: flex; flex-direction: column; height: 100%; }
+  .tt { flex: 1; min-height: 0; overflow-y: auto; box-sizing: border-box; padding: 4px 16px calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .tt-row { display: grid; grid-template-columns: 44px repeat(6, minmax(0, 1fr)); align-items: center; }
+  .tt-hr { display: flex; align-items: center; height: 100%; line-height: 1; text-align: left; font-size: 15px; color: #111; font-variant-numeric: tabular-nums; }
+  .tt-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+  .tt-cell i { display: block; width: 81%; height: 81%; border-radius: 50%; box-sizing: border-box; border: 4px solid #f0f0f0; background: transparent; }
+  .tt { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .tt.sel-open { padding-bottom: 45vh; }
+  .tt-cell i.sel { border-color: #111 !important; }
+  .tt-chip { cursor: pointer; }
+  .tt-modal-pill { padding: 12px 16px 0; }
+  .dl-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 30; }
+  .dl-back.open { opacity: 1; pointer-events: auto; }
+  .dl-sheet { position: fixed; left: 0; right: 0; bottom: 0; box-sizing: border-box; height: 60%; background: #ffffff; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12); transform: translateY(100%); transition: transform 0.3s ease; z-index: 31; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .dl-sheet.open { transform: translateY(0); }
+  .dl-body { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 16px; height: calc(100% - 24px); box-sizing: border-box; }
+  .dl-group { display: flex; flex-direction: column; gap: 6px; }
+  .dl-grow { flex: 1; min-height: 0; }
+  .tt-cell i { position: relative; }
+  .tt-cell i.fl { background: linear-gradient(to right, var(--fill) var(--f), transparent var(--f)); background-origin: border-box; }
+  .tt-cell .vl { position: absolute; top: 0; bottom: 0; width: 1px; background: transparent; pointer-events: none; text-decoration: none; display: block; }
+  .tt-modal { position: fixed; left: 0; right: 0; bottom: 0; height: 38%; box-sizing: border-box; background: #ffffff; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12); transform: translateY(100%); transition: transform 0.3s ease; z-index: 22; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .tt-modal.open { transform: translateY(0); }
+  .tt-modal { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .tt-dl-list { list-style: none; margin: 0; padding: 6px 4px 16px 16px; }
+  .tt-dl-list:empty { display: none; }
+  .tt-dl-list li { padding: 6px 0; cursor: pointer; }
+  .tt-cell { position: relative; }
+  .tt-badge { position: absolute; right: 3%; bottom: 3%; display: flex; align-items: center; gap: 2px; background: #f0f0f0; color: #111111; font-size: 11px; font-weight: 600; font-style: normal; line-height: 1; padding: 3px 5px; border-radius: 999px; pointer-events: none; }
+  .tt-badge:empty { display: none; }
+  .sheet:not(.open), .dl-sheet:not(.open), .tt-modal:not(.open), .ax-sheet:not(.open), .bx-drawer:not(.open) { box-shadow: none; }
+  .hamburger { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 18px); right: 14px; width: 32px; height: 32px; border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; z-index: 10; }
+  .hamburger span { display: block; width: 16px; height: 2px; border-radius: 2px; background: #111; }
+  .bx-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 40; }
+  .bx-back.open { opacity: 1; pointer-events: auto; }
+  .bx-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 78%; max-width: 320px; box-sizing: border-box; background: #ffffff; box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12); transform: translateX(100%); transition: transform 0.3s ease; z-index: 41; padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 16px; }
+  .bx-drawer.open { transform: translateX(0); }
+  .bx-head { display: flex; align-items: center; justify-content: space-between; }
+  .bx-title { font-size: 17px; font-weight: 600; }
+  .bx-close { border: 0; background: none; font-size: 20px; line-height: 1; padding: 6px; cursor: pointer; color: #111; }
+  .bx-list { list-style: none; margin: 16px 0 0; padding: 0; }
+  .bx-item { width: 100%; display: flex; align-items: center; justify-content: space-between; border: 0; background: #f0f0f0; border-radius: 12px; padding: 14px 16px; font-size: 16px; color: #111; cursor: pointer; }
+  .bx-chev { font-size: 22px; line-height: 1; color: #8a8a8a; }
+  .bx-page { position: fixed; inset: 0; background: #ffffff; transform: translateX(100%); transition: transform 0.3s ease; z-index: 50; padding-top: env(safe-area-inset-top, 0px); }
+  .bx-page.open { transform: translateX(0); }
+  .bx-page { overflow-y: auto; box-sizing: border-box; }
+  .bx-archive-list { list-style: none; margin: 0; padding: 4px 20px 24px; }
+  .bx-archive-list li { padding: 10px 0; cursor: pointer; }
+  .ax-back { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 60; }
+  .ax-back.open { opacity: 1; pointer-events: auto; }
+  .ax-sheet { position: fixed; left: 0; right: 0; bottom: 0; box-sizing: border-box; background: #ffffff; border-radius: 16px 16px 0 0; box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12); transform: translateY(100%); transition: transform 0.3s ease; z-index: 61; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .ax-sheet.open { transform: translateY(0); }
+  .ax-body { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 16px; }
+  .ax-form { height: 60%; }
+  .bx-page-head { display: flex; align-items: center; gap: 4px; padding: 12px 12px; }
+  .bx-page-back { border: 0; background: none; font-size: 30px; line-height: 1; padding: 0 10px 4px; cursor: pointer; color: #111; }
+  .done-head button { padding: 4px 9px; }
+  .done-head .cal-title { padding: 4px 9px; }
+  .cal > .cal-head { justify-content: center; }
+  #cal-prev, #cal-next, #cal-title { padding: 4px 9px; }
+  .cat .pill, .tt-modal-pill .pill { font-size: 15px; padding: 6px 6px 6px 18px; }
+  .cat .pill-add, .tt-modal-pill .pill-add { width: 28px; height: 28px; font-size: 20px; }
+  .cat .dot { width: 12px; height: 12px; }
+  .tt-modal.dragging { pointer-events: none; }
+  .tt-modal-top { display: flex; justify-content: flex-end; padding: 12px 16px 0; }
+  .tt-close { border: 0; background: none; font-size: 20px; line-height: 1; padding: 6px; cursor: pointer; color: #111; }
+  .tt-cat-row { display: flex; align-items: center; gap: 12px; padding: 8px 0 0 16px; }
+  .tt-cat-lbl { flex: none; font-size: 15px; font-weight: 500; color: #111; }
+  .tt-chips { display: flex; gap: 8px; overflow-x: auto; flex: 1; min-width: 0; padding-right: 16px; scrollbar-width: none; }
+  .tt-chips::-webkit-scrollbar { display: none; }
+  .tt-chip { flex: none; display: flex; align-items: center; gap: 8px; background: #f0f0f0; color: #111; border-radius: 999px; padding: 10px 16px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .tt-chip i { display: block; width: 12px; height: 12px; border-radius: 50%; }
+
+  .bx-list li + li { margin-top: 8px; }
+  .sx-body { display: flex; flex-direction: column; gap: 12px; padding: 8px 20px 24px; }
+  .sx-group { display: flex; flex-direction: column; gap: 6px; }
+  #sx-status { font-size: 13px; color: #111; white-space: pre-wrap; word-break: break-word; }
+  #sx-status.err { color: #d93025; }
+  #sx-last { font-size: 12px; color: #8a8a8a; }
+  .sx-dot { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 29px); left: 16px; width: 10px; height: 10px; border-radius: 50%; background: #e53935; z-index: 10; pointer-events: none; transition: background 0.2s ease; }
+  .sx-dot.ok { background: #2e9e4f; }
+  .sx-dot.busy { background: #f5c400; animation: sx-blink 0.8s ease-in-out infinite; }
+  @keyframes sx-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+</style>
+</head>
+<body>
+  <div id="todo" class="view active">
+    <section class="cal">
+      <div class="cal-head">
+        <button id="cal-prev" aria-label="이전 달">‹</button>
+        <button class="cal-title" id="cal-title" aria-label="오늘로 이동"></button>
+        <button id="cal-next" aria-label="다음 달">›</button>
+      </div>
+      <div class="cal-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </section>
+    <div class="cats">
+      <div class="cat" data-cat="일정" style="--c:#BA664C"><div class="pill"><span class="pill-label"><i class="dot" style="background:#BA664C"></i>일정</span><button class="pill-add" aria-label="추가">+</button></div><ul class="todo-list"></ul></div>
+      <div class="cat" data-cat="교통" style="--c:#262D82"><div class="pill"><span class="pill-label"><i class="dot" style="background:#262D82"></i>교통</span><button class="pill-add" aria-label="추가">+</button></div><ul class="todo-list"></ul></div>
+      <div class="cat" data-cat="집중" style="--c:#DBB114"><div class="pill"><span class="pill-label"><i class="dot" style="background:#DBB114"></i>집중</span><button class="pill-add" aria-label="추가">+</button></div><ul class="todo-list"></ul></div>
+      <div class="cat" data-cat="할일" style="--c:#7C33B0"><div class="pill"><span class="pill-label"><i class="dot" style="background:#7C33B0"></i>할일</span><button class="pill-add" aria-label="추가">+</button></div><ul class="todo-list"></ul></div>
+    </div>
+  </div>
+  <div id="done" class="view">
+    <div class="cal-head done-head">
+      <button id="done-prev" aria-label="이전 일">‹</button>
+      <button class="cal-title" id="done-title" aria-label="오늘로 이동"></button>
+      <button id="done-next" aria-label="다음 일">›</button>
+    </div>
+    <div class="tt" id="tt"></div>
+  </div>
+  <nav class="nav">
+    <button class="active" data-tab="todo">todo</button>
+    <button data-tab="done">done</button>
+  </nav>
+  <div class="tt-modal" id="tt-modal">
+    <div class="tt-modal-top"><button class="tt-close" id="tt-close" aria-label="닫기">✕</button></div>
+    <div class="tt-cat-row">
+      <span class="tt-cat-lbl">카테고리</span>
+      <div class="tt-chips">
+        <span class="tt-chip"><i style="background:#BA664C"></i>일정</span>
+        <span class="tt-chip"><i style="background:#262D82"></i>교통</span>
+        <span class="tt-chip"><i style="background:#DBB114"></i>집중</span>
+        <span class="tt-chip"><i style="background:#7C33B0"></i>할일</span>
+        <span class="tt-chip"><i style="background:#9E9E9E"></i>잠</span>
+      </div>
+    </div>
+    <div class="tt-modal-pill"><div class="pill"><span class="pill-label">done list</span><button class="pill-add" aria-label="추가">+</button></div><ul class="tt-dl-list" id="tt-dl-list"></ul></div>
+  </div>
+  <button class="hamburger" id="hamburger" aria-label="메뉴"><span></span><span></span><span></span></button>
+  <div class="sx-dot off" id="sx-dot" role="status" aria-label="동기화 상태"></div>
+  <div class="bx-back" id="bx-back"></div>
+  <aside class="bx-drawer" id="bx-drawer">
+    <div class="bx-head"><span class="bx-title">메뉴</span><button class="bx-close" id="bx-close" aria-label="닫기">✕</button></div>
+    <ul class="bx-list"><li><button class="bx-item" id="bx-archive"><span>보관함</span><span class="bx-chev">›</span></button></li><li><button class="bx-item" id="bx-sync"><span>동기화</span><span class="bx-chev">›</span></button></li></ul>
+  </aside>
+  <section class="bx-page" id="bx-page">
+    <div class="bx-page-head"><button class="bx-page-back" id="bx-page-back" aria-label="뒤로">‹</button><span class="bx-title">보관함</span></div>
+    <ul class="bx-archive-list" id="bx-archive-list"></ul>
+  </section>
+  <section class="bx-page" id="sx-page">
+    <div class="bx-page-head"><button class="bx-page-back" id="sx-page-back" aria-label="뒤로">‹</button><span class="bx-title">동기화</span></div>
+    <div class="sx-body">
+      <div class="sx-group">
+        <label class="lbl" for="sx-url">Apps Script 웹앱 URL</label>
+        <input id="sx-url" class="field" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      </div>
+      <button class="save" id="sx-run" disabled>동기화</button>
+      <div id="sx-status"></div>
+      <div id="sx-last"></div>
+    </div>
+  </section>
+  <div class="ax-back" id="ax-back"></div>
+  <div class="ax-sheet" id="ax-actions">
+    <div class="sheet-handle"></div>
+    <div class="ax-body">
+      <button class="action-btn" id="ax-edit">보관함 수정</button>
+      <button class="action-btn danger" id="ax-delete">보관함 삭제</button>
+    </div>
+  </div>
+  <div class="ax-sheet ax-form" id="ax-form">
+    <div class="sheet-handle"></div>
+    <div class="dl-body">
+      <div class="dl-group">
+        <label class="lbl" for="ax-title">투두 제목</label>
+        <input id="ax-title" class="field" type="text" maxlength="100" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="dl-group dl-grow">
+        <label class="lbl" for="ax-memo">투두 메모</label>
+        <textarea id="ax-memo" class="field memo" autocomplete="off" spellcheck="false"></textarea>
+      </div>
+      <button class="save" id="ax-save" disabled>저장</button>
+    </div>
+  </div>
+  <div class="dl-back" id="dl-back"></div>
+  <div class="dl-sheet" id="dl-sheet">
+    <div class="sheet-handle"></div>
+    <div class="dl-body">
+      <div class="dl-group">
+        <label class="lbl" for="dl-title">투두 제목</label>
+        <input id="dl-title" class="field" type="text" maxlength="100" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="dl-group dl-grow">
+        <label class="lbl" for="dl-memo">투두 메모</label>
+        <textarea id="dl-memo" class="field memo" autocomplete="off" spellcheck="false"></textarea>
+      </div>
+      <button class="save" id="dl-save" disabled>저장</button>
+    </div>
+  </div>
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-body">
+      <div class="group">
+        <label class="lbl" for="todo-title">투두 제목</label>
+        <input id="todo-title" class="field" type="text" maxlength="100" autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <div class="group" id="memo-group">
+        <div class="lbl-row">
+          <label class="lbl" for="todo-memo">투두 메모</label>
+          <button type="button" class="switch" id="memo-toggle" role="switch" aria-checked="false" aria-label="메모 펼치기"></button>
+        </div>
+        <div class="memo-body">
+          <textarea id="todo-memo" class="field memo" autocomplete="off" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="group" id="time-group">
+        <div class="lbl-row">
+          <span class="lbl">투두 시간</span>
+          <button type="button" class="switch" id="time-toggle" role="switch" aria-checked="false" aria-label="시간 펼치기"></button>
+        </div>
+        <div class="time-body">
+          <div class="time-col">
+            <label class="sublbl" for="time-start">투두 시작 시간</label>
+            <input id="time-start" class="field time" type="text" inputmode="numeric" placeholder="00:00" maxlength="5" autocomplete="off">
+          </div>
+          <span class="time-dash">-</span>
+          <div class="time-col">
+            <label class="sublbl" for="time-end">완료 시간</label>
+            <input id="time-end" class="field time" type="text" inputmode="numeric" placeholder="00:00" maxlength="5" autocomplete="off">
+          </div>
+        </div>
+      </div>
+      <div class="group" id="repeat-group">
+        <div class="lbl-row">
+          <span class="lbl">반복</span>
+          <button type="button" class="switch" id="repeat-toggle" role="switch" aria-checked="false" aria-label="반복 펼치기"></button>
+        </div>
+        <div class="repeat-body">
+          <div class="time-col">
+            <span class="sublbl">반복 요일</span>
+            <div class="days">
+              <button type="button" class="day" data-d="0">일</button>
+              <button type="button" class="day" data-d="1">월</button>
+              <button type="button" class="day" data-d="2">화</button>
+              <button type="button" class="day" data-d="3">수</button>
+              <button type="button" class="day" data-d="4">목</button>
+              <button type="button" class="day" data-d="5">금</button>
+              <button type="button" class="day" data-d="6">토</button>
+            </div>
+          </div>
+          <div class="time-col">
+            <span class="sublbl">반복 종료일</span>
+            <div class="picker" id="rep-picker"></div>
+          </div>
+        </div>
+      </div>
+      <button id="todo-save" class="save" disabled>저장</button>
+    </div>
+  </div>
+  <div class="sheet actions" id="action-sheet">
+    <div class="sheet-handle"></div>
+    <div class="action-body">
+      <button class="action-btn" id="act-edit">투두 수정</button>
+      <button class="action-btn" id="act-date">날짜 수정</button>
+      <button class="action-btn" id="act-archive">보관함으로 이동</button>
+      <button class="action-btn danger" id="act-delete">투두 삭제</button>
+    </div>
+  </div>
+  <div class="sheet actions" id="scope-sheet">
+    <div class="sheet-handle"></div>
+    <div class="action-body">
+      <button class="action-btn" id="scope-this"></button>
+      <button class="action-btn" id="scope-future"></button>
+    </div>
+  </div>
+  <div class="sheet actions" id="date-sheet">
+    <div class="sheet-handle"></div>
+    <div class="action-body">
+      <div class="group">
+        <span class="lbl">날짜</span>
+        <div class="picker" id="date-picker"></div>
+      </div>
+      <button class="save" id="date-save" disabled>저장</button>
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll('.nav button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.nav button, .view').forEach(function (el) { el.classList.remove('active'); });
+        b.classList.add('active');
+        document.getElementById(b.dataset.tab).classList.add('active');
+      });
+    });
+    var calCur = new Date(); calCur.setDate(1);
+    var calSel = new Date();
+    function sameDay(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+    function renderCal() {
+      var y = calCur.getFullYear(), m = calCur.getMonth();
+      var label = calSel.getFullYear() + '년 ' + (calSel.getMonth() + 1) + '월 ' + calSel.getDate() + '일';
+      document.getElementById('cal-title').textContent = label;
+      document.getElementById('done-title').textContent = label;
+      var start = new Date(y, m, 1 - new Date(y, m, 1).getDay());
+      var grid = document.getElementById('cal-grid');
+      grid.innerHTML = '';
+      var today = new Date();
+      for (var i = 0; i < 42; i++) {
+        var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        var b = document.createElement('button');
+        b.className = (d.getMonth() !== m ? 'out ' : '') + (sameDay(d, today) ? 'today ' : '') + (sameDay(d, calSel) ? 'sel' : '');
+        b.innerHTML = '<span>' + d.getDate() + '</span>';
+        (function (dd) {
+          b.addEventListener('click', function () {
+            calSel = dd;
+            if (dd.getMonth() !== calCur.getMonth()) { calCur = new Date(dd.getFullYear(), dd.getMonth(), 1); }
+            renderCal();
+          });
+        })(d);
+        grid.appendChild(b);
+      }
+      renderTodos();
+    }
+    document.getElementById('cal-prev').addEventListener('click', function () { calCur = new Date(calCur.getFullYear(), calCur.getMonth() - 1, 1); calSel = new Date(calCur.getTime()); renderCal(); });
+    document.getElementById('cal-next').addEventListener('click', function () { calCur = new Date(calCur.getFullYear(), calCur.getMonth() + 1, 1); calSel = new Date(calCur.getTime()); renderCal(); });
+    function goToday() { var t = new Date(); calSel = t; calCur = new Date(t.getFullYear(), t.getMonth(), 1); renderCal(); }
+    document.getElementById('cal-title').addEventListener('click', goToday);
+    document.getElementById('done-title').addEventListener('click', goToday);
+    function shiftDay(n) { calSel = new Date(calSel.getFullYear(), calSel.getMonth(), calSel.getDate() + n); calCur = new Date(calSel.getFullYear(), calSel.getMonth(), 1); renderCal(); }
+    document.getElementById('done-prev').addEventListener('click', function () { shiftDay(-1); });
+    document.getElementById('done-next').addEventListener('click', function () { shiftDay(1); });
+    function setSheet(open) {
+      document.getElementById('sheet').classList.toggle('open', open);
+      document.getElementById('backdrop').classList.toggle('open', open);
+    }
+    document.getElementById('backdrop').addEventListener('click', function () { setSheet(false); setAction(false); setScope(false); setDateSheet(false); });
+    var curCat = '';
+    var todos = [];
+    try { todos = JSON.parse(localStorage.getItem('todos-v1') || '[]'); } catch (e) { todos = []; }
+    if (!Array.isArray(todos)) { todos = []; }
+    function saveTodos() { try { localStorage.setItem('todos-v1', JSON.stringify(todos)); } catch (e) {} }
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+    function dateKey(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    function renderTodos() {
+      var k = dateKey(calSel);
+      document.querySelectorAll('.cat').forEach(function (c) {
+        var ul = c.querySelector('.todo-list');
+        ul.innerHTML = '';
+        var list = todos.filter(function (t) { return t.cat === c.dataset.cat && t.date === k; });
+        var ordered = list.filter(function (t) { return !t.done; }).concat(list.filter(function (t) { return t.done; }));
+        ordered.forEach(function (t) {
+          var li = document.createElement('li');
+          var chk = document.createElement('button');
+          chk.className = 'chk' + (t.done ? ' on' : '');
+          chk.setAttribute('aria-label', '완료 표시');
+          chk.addEventListener('click', function () { t.done = !t.done; saveTodos(); renderTodos(); });
+          var text = document.createElement('div');
+          text.className = 'todo-text' + (t.done ? ' done' : '');
+          var title = document.createElement('div');
+          title.className = 'todo-title';
+          title.textContent = t.title;
+          text.appendChild(title);
+          if (t.start || t.end) {
+            var tm = document.createElement('div');
+            tm.className = 'todo-time';
+            tm.textContent = (t.start || '--:--') + ' - ' + (t.end || '--:--');
+            text.appendChild(tm);
+          }
+          if (t.memo) {
+            var memo = document.createElement('div');
+            memo.className = 'todo-memo';
+            memo.textContent = t.memo;
+            text.appendChild(memo);
+          }
+          li.appendChild(chk);
+          li.appendChild(text);
+          li.dataset.id = t.id;
+          attachDrag(li, ul);
+          ul.appendChild(li);
+        });
+      });
+    }
+    var drag = false;
+    document.addEventListener('touchmove', function (e) { if (drag) { e.preventDefault(); } }, { passive: false });
+    function attachDrag(li, ul) {
+      li.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      li.addEventListener('click', function (e) {
+        if (e.target.closest('.chk') || suppressClick) { return; }
+        openActions(li.dataset.id);
+      });
+      li.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('.chk')) { return; }
+        if (e.pointerType === 'mouse' && e.button !== 0) { return; }
+        var sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+        var timer = setTimeout(startDrag, 400);
+        function cancel() {
+          clearTimeout(timer);
+          li.removeEventListener('pointermove', pre);
+          li.removeEventListener('pointerup', cancel);
+          li.removeEventListener('pointercancel', cancel);
+        }
+        function pre(ev) { if (Math.abs(ev.clientX - sx) > 8 || Math.abs(ev.clientY - sy) > 8) { cancel(); } }
+        li.addEventListener('pointermove', pre);
+        li.addEventListener('pointerup', cancel);
+        li.addEventListener('pointercancel', cancel);
+        function startDrag() {
+          cancel();
+          try { li.setPointerCapture(pid); } catch (err) {}
+          drag = true;
+          li.classList.add('dragging');
+          var grab = sy - li.getBoundingClientRect().top;
+          function move(ev) {
+            var others = Array.prototype.slice.call(ul.children).filter(function (x) { return x !== li; });
+            var next = null;
+            for (var i = 0; i < others.length; i++) {
+              var r = others[i].getBoundingClientRect();
+              if (ev.clientY < r.top + r.height / 2) { next = others[i]; break; }
+            }
+            ul.insertBefore(li, next);
+            li.style.transform = '';
+            var nat = li.getBoundingClientRect().top;
+            var ur = ul.getBoundingClientRect();
+            var want = Math.max(ur.top, Math.min(ev.clientY - grab, ur.bottom - li.offsetHeight));
+            li.style.transform = 'translateY(' + (want - nat) + 'px)';
+          }
+          function end() {
+            li.removeEventListener('pointermove', move);
+            li.removeEventListener('pointerup', end);
+            li.removeEventListener('pointercancel', end);
+            li.style.transform = '';
+            li.classList.remove('dragging');
+            drag = false;
+            suppressClick = true;
+            setTimeout(function () { suppressClick = false; }, 350);
+            var ids = Array.prototype.map.call(ul.children, function (x) { return x.dataset.id; });
+            var slots = [], items = [];
+            todos.forEach(function (t, idx) { if (ids.indexOf(String(t.id)) !== -1) { slots.push(idx); items.push(t); } });
+            var sorted = ids.map(function (id) { return items.filter(function (t) { return String(t.id) === id; })[0]; });
+            slots.forEach(function (s, i) { todos[s] = sorted[i]; });
+            saveTodos();
+            renderTodos();
+          }
+          li.addEventListener('pointermove', move);
+          li.addEventListener('pointerup', end);
+          li.addEventListener('pointercancel', end);
+        }
+      });
+    }
+    var titleEl = document.getElementById('todo-title');
+    var memoEl = document.getElementById('todo-memo');
+    var saveEl = document.getElementById('todo-save');
+    function updateSave() {
+      var bad = titleEl.value.trim() === '';
+      if (!bad && editingId === null && repeatGroup.classList.contains('open')) {
+        var ev = repPicker.get();
+        bad = getRepDays().length === 0 || !ev || ev < new Date(calSel.getFullYear(), calSel.getMonth(), calSel.getDate());
+      }
+      saveEl.disabled = bad;
+    }
+    titleEl.addEventListener('input', updateSave);
+    document.querySelectorAll('.cat .pill-add').forEach(function (b) {
+      b.addEventListener('click', function () {
+        curCat = b.closest('.cat').dataset.cat;
+        editingId = null;
+        titleEl.value = '';
+        memoEl.value = '';
+        setMemoOpen(false);
+        startEl.value = '';
+        endEl.value = '';
+        setTimeOpen(false);
+        dayBtns.forEach(function (x) { x.classList.remove('on'); });
+        repPicker.min = new Date(calSel.getFullYear(), calSel.getMonth(), calSel.getDate());
+        repPicker.max = new Date(calSel.getFullYear(), calSel.getMonth(), calSel.getDate() + 366);
+        repPicker.set(null);
+        setRepeatOpen(false);
+        document.getElementById('sheet').classList.remove('editing');
+        updateSave();
+        fitSheet();
+        setSheet(true);
+      });
+    });
+    saveEl.addEventListener('click', function () {
+      var title = titleEl.value.trim();
+      if (!title) { return; }
+      var memoVal = memoGroup.classList.contains('open') ? memoEl.value.trim() : '';
+      var timeOn = timeGroup.classList.contains('open');
+      var st = timeOn && startEl.value.length === 5 ? startEl.value : '';
+      var en = timeOn && endEl.value.length === 5 ? endEl.value : '';
+      if (editingId !== null) {
+        var target = findTodo(editingId);
+        if (target && target.rid) {
+          pendingEdit = { title: title, memo: memoVal, start: st, end: en };
+          setSheet(false);
+          openScope('edit');
+          return;
+        }
+        todos.forEach(function (t) { if (String(t.id) === String(editingId)) { t.title = title; t.memo = memoVal; t.start = st; t.end = en; } });
+        editingId = null;
+      } else {
+        if (repeatGroup.classList.contains('open')) {
+          var days = getRepDays();
+          var first = new Date(calSel.getFullYear(), calSel.getMonth(), calSel.getDate());
+          var last = repPicker.get();
+          var cap = new Date(first.getFullYear(), first.getMonth(), first.getDate() + 366);
+          if (last > cap) { last = cap; }
+          var id0 = Date.now() * 1000, n = 0;
+          for (var d = new Date(first.getTime()); d <= last; d.setDate(d.getDate() + 1)) {
+            if (days.indexOf(d.getDay()) !== -1) {
+              todos.push({ id: id0 + n, rid: id0, cat: curCat, date: dateKey(d), title: title, memo: memoVal, start: st, end: en });
+              n++;
+            }
+          }
+        } else {
+          todos.push({ id: Date.now(), cat: curCat, date: dateKey(calSel), title: title, memo: memoVal, start: st, end: en });
+        }
+      }
+      saveTodos();
+      setSheet(false);
+      renderTodos();
+    });
+    var repeatGroup = document.getElementById('repeat-group');
+    var repeatToggle = document.getElementById('repeat-toggle');
+    var repPicker = makePicker(document.getElementById('rep-picker'));
+    repPicker.onChange = function () { updateSave(); };
+    var dayBtns = document.querySelectorAll('.day');
+    function parseDate(v) { var p = v.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+    function getRepDays() {
+      var r = [];
+      dayBtns.forEach(function (b) { if (b.classList.contains('on')) { r.push(+b.dataset.d); } });
+      return r;
+    }
+    function setRepeatOpen(on) {
+      repeatGroup.classList.toggle('open', on);
+      repeatToggle.classList.toggle('on', on);
+      repeatToggle.setAttribute('aria-checked', on ? 'true' : 'false');
+      if (on && getRepDays().length === 0) {
+        dayBtns.forEach(function (b) { if (+b.dataset.d === calSel.getDay()) { b.classList.add('on'); } });
+      }
+      updateSave();
+    }
+    repeatToggle.addEventListener('click', function () { setRepeatOpen(!repeatGroup.classList.contains('open')); });
+    dayBtns.forEach(function (b) { b.addEventListener('click', function () { b.classList.toggle('on'); updateSave(); }); });
+    var timeGroup = document.getElementById('time-group');
+    var timeToggle = document.getElementById('time-toggle');
+    var startEl = document.getElementById('time-start');
+    var endEl = document.getElementById('time-end');
+    function setTimeOpen(on) {
+      timeGroup.classList.toggle('open', on);
+      timeToggle.classList.toggle('on', on);
+      timeToggle.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+    timeToggle.addEventListener('click', function () { setTimeOpen(!timeGroup.classList.contains('open')); });
+    function fmtTime(el) {
+      var d = el.value.replace(/\D/g, '').slice(0, 4);
+      if (d.length >= 2 && +d.slice(0, 2) > 23) { d = '23' + d.slice(2); }
+      if (d.length === 4 && +d.slice(2) > 59) { d = d.slice(0, 2) + '59'; }
+      el.value = d.length > 2 ? d.slice(0, 2) + ':' + d.slice(2) : d;
+      return d.length;
+    }
+    startEl.addEventListener('input', function (e) {
+      var n = fmtTime(startEl);
+      if (n === 4 && e.inputType !== 'deleteContentBackward') { endEl.focus(); }
+    });
+    endEl.addEventListener('input', function () { fmtTime(endEl); });
+    var memoGroup = document.getElementById('memo-group');
+    var memoToggle = document.getElementById('memo-toggle');
+    function setMemoOpen(on) {
+      memoGroup.classList.toggle('open', on);
+      memoToggle.classList.toggle('on', on);
+      memoToggle.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+    memoToggle.addEventListener('click', function () { setMemoOpen(!memoGroup.classList.contains('open')); });
+    function fitSheet() {
+      var sh = document.getElementById('sheet');
+      var groups = [memoGroup, timeGroup, repeatGroup];
+      var was = groups.map(function (g) { return g.classList.contains('open'); });
+      var ed = sh.classList.contains('editing');
+      groups.forEach(function (g) { g.classList.remove('open'); });
+      sh.classList.remove('editing');
+      sh.style.height = 'auto';
+      var h = sh.offsetHeight;
+      sh.style.height = Math.min(h, Math.round(window.innerHeight * 0.9)) + 'px';
+      groups.forEach(function (g, i) { g.classList.toggle('open', was[i]); });
+      if (ed) { sh.classList.add('editing'); }
+    }
+    function makePicker(root) {
+      root.innerHTML = '<div class="cal-head"><button type="button" class="pk-prev" aria-label="이전 달">‹</button><button type="button" class="cal-title pk-title"></button><button type="button" class="pk-next" aria-label="다음 달">›</button></div><div class="cal-week"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="cal-grid pk-grid"></div>';
+      var titleEl2 = root.querySelector('.pk-title');
+      var grid = root.querySelector('.pk-grid');
+      var sel = null, cur = new Date();
+      var api = { min: null, max: null, onChange: function () {} };
+      function ymd(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+      function inRange(d) { return (!api.min || d >= api.min) && (!api.max || d <= api.max); }
+      function clamp(d) {
+        if (api.min && d < api.min) { return ymd(api.min); }
+        if (api.max && d > api.max) { return ymd(api.max); }
+        return d;
+      }
+      function render() {
+        var y = cur.getFullYear(), m = cur.getMonth();
+        titleEl2.textContent = sel ? sel.getFullYear() + '년 ' + (sel.getMonth() + 1) + '월 ' + sel.getDate() + '일' : y + '년 ' + (m + 1) + '월';
+        var start = new Date(y, m, 1 - new Date(y, m, 1).getDay());
+        var today = new Date();
+        grid.innerHTML = '';
+        for (var i = 0; i < 42; i++) {
+          var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = (d.getMonth() !== m ? 'out ' : '') + (sameDay(d, today) ? 'today ' : '') + (sel && sameDay(d, sel) ? 'sel ' : '') + (inRange(d) ? '' : 'dis');
+          b.innerHTML = '<span>' + d.getDate() + '</span>';
+          (function (dd) { b.addEventListener('click', function () { pick(dd); }); })(d);
+          grid.appendChild(b);
+        }
+      }
+      function pick(d) {
+        if (!inRange(d)) { return; }
+        sel = d;
+        cur = new Date(d.getFullYear(), d.getMonth(), 1);
+        render();
+        api.onChange(sel);
+      }
+      root.querySelector('.pk-prev').addEventListener('click', function () { pick(clamp(new Date(cur.getFullYear(), cur.getMonth() - 1, 1))); });
+      root.querySelector('.pk-next').addEventListener('click', function () { pick(clamp(new Date(cur.getFullYear(), cur.getMonth() + 1, 1))); });
+      titleEl2.addEventListener('click', function () { pick(ymd(new Date())); });
+      api.get = function () { return sel ? ymd(sel) : null; };
+      api.set = function (d) {
+        sel = d ? ymd(d) : null;
+        var base = sel || api.min || new Date();
+        cur = new Date(base.getFullYear(), base.getMonth(), 1);
+        render();
+      };
+      render();
+      return api;
+    }
+    var scopeMode = '', pendingEdit = null, pendingDate = '';
+    var scopeThis = document.getElementById('scope-this');
+    var scopeFuture = document.getElementById('scope-future');
+    function findTodo(id) {
+      var f = null;
+      todos.forEach(function (t) { if (String(t.id) === String(id)) { f = t; } });
+      return f;
+    }
+    function setScope(open) {
+      document.getElementById('scope-sheet').classList.toggle('open', open);
+      document.getElementById('backdrop').classList.toggle('open', open);
+    }
+    function openScope(mode) {
+      scopeMode = mode;
+      var word = mode === 'edit' ? '수정' : (mode === 'date' ? '날짜 수정' : '삭제');
+      scopeThis.textContent = '이 투두만 ' + word;
+      scopeFuture.textContent = '이 투두와 앞으로의 투두 ' + word;
+      scopeThis.classList.toggle('danger', mode === 'delete');
+      scopeFuture.classList.toggle('danger', mode === 'delete');
+      setScope(true);
+    }
+    function applyScope(future) {
+      var base = findTodo(scopeMode === 'edit' ? editingId : selId);
+      if (!base) { setScope(false); return; }
+      var targets = todos.filter(function (t) {
+        if (t === base) { return true; }
+        return future && base.rid && t.rid === base.rid && t.date >= base.date;
+      });
+      if (scopeMode === 'delete') {
+        todos = todos.filter(function (t) { return targets.indexOf(t) === -1; });
+      } else if (scopeMode === 'date') {
+        var delta = Math.round((parseDate(pendingDate) - parseDate(base.date)) / 86400000);
+        targets.forEach(function (t) {
+          var d = parseDate(t.date);
+          d.setDate(d.getDate() + delta);
+          t.date = dateKey(d);
+        });
+        jumpTo(parseDate(pendingDate));
+        pendingDate = '';
+      } else if (pendingEdit) {
+        targets.forEach(function (t) {
+          t.title = pendingEdit.title;
+          t.memo = pendingEdit.memo;
+          t.start = pendingEdit.start;
+          t.end = pendingEdit.end;
+        });
+        editingId = null;
+        pendingEdit = null;
+      }
+      saveTodos();
+      setScope(false);
+      renderTodos();
+    }
+    scopeThis.addEventListener('click', function () { applyScope(false); });
+    scopeFuture.addEventListener('click', function () { applyScope(true); });
+    var datePicker = makePicker(document.getElementById('date-picker'));
+    datePicker.onChange = function () { dateSaveEl.disabled = false; };
+    var dateSaveEl = document.getElementById('date-save');
+    function setDateSheet(open) {
+      document.getElementById('date-sheet').classList.toggle('open', open);
+      document.getElementById('backdrop').classList.toggle('open', open);
+    }
+    function jumpTo(d) {
+      calSel = d;
+      calCur = new Date(d.getFullYear(), d.getMonth(), 1);
+      renderCal();
+    }
+    document.getElementById('act-date').addEventListener('click', function () {
+      var t = findTodo(selId);
+      if (!t) { setAction(false); return; }
+      datePicker.set(parseDate(t.date));
+      dateSaveEl.disabled = false;
+      setAction(false);
+      setDateSheet(true);
+    });
+    dateSaveEl.addEventListener('click', function () {
+      var base = findTodo(selId);
+      var pk = datePicker.get();
+      var nv = pk ? dateKey(pk) : '';
+      if (!base || !nv) { return; }
+      if (nv === base.date) { setDateSheet(false); return; }
+      if (base.rid) { pendingDate = nv; setDateSheet(false); openScope('date'); return; }
+      base.date = nv;
+      saveTodos();
+      setDateSheet(false);
+      jumpTo(parseDate(nv));
+    });
+    var editingId = null, selId = null, suppressClick = false;
+    function setAction(open) {
+      document.getElementById('action-sheet').classList.toggle('open', open);
+      document.getElementById('backdrop').classList.toggle('open', open);
+    }
+    function openActions(id) { selId = id; setAction(true); }
+    document.getElementById('act-edit').addEventListener('click', function () {
+      var found = null;
+      todos.forEach(function (t) { if (String(t.id) === String(selId)) { found = t; } });
+      if (!found) { setAction(false); return; }
+      editingId = found.id;
+      titleEl.value = found.title;
+      memoEl.value = found.memo || '';
+      setMemoOpen(!!found.memo);
+      startEl.value = found.start || '';
+      endEl.value = found.end || '';
+      setTimeOpen(!!(found.start || found.end));
+      setRepeatOpen(false);
+      document.getElementById('sheet').classList.add('editing');
+      updateSave();
+      setAction(false);
+      fitSheet();
+      setSheet(true);
+    });
+    document.getElementById('act-delete').addEventListener('click', function () {
+      var t0 = findTodo(selId);
+      if (t0 && t0.rid) { setAction(false); openScope('delete'); return; }
+      todos = todos.filter(function (t) { return String(t.id) !== String(selId); });
+      saveTodos();
+      setAction(false);
+      renderTodos();
+    });
+    document.getElementById('act-archive').addEventListener('click', function () {
+      var t0 = findTodo(selId);
+      if (!t0) { setAction(false); return; }
+      var arc = [];
+      try { arc = JSON.parse(localStorage.getItem('archive-v1') || '[]'); } catch (e) { arc = []; }
+      arc.push({ id: Date.now(), title: t0.title, memo: t0.memo || '' });
+      try { localStorage.setItem('archive-v1', JSON.stringify(arc)); } catch (e) {}
+      todos = todos.filter(function (t) { return t !== t0; });
+      saveTodos();
+      setAction(false);
+      renderTodos();
+    });
+    renderCal();
+  </script>
+  <script>
+    (function () {
+      var tt = document.getElementById('tt'), html = '', vl = '';
+      for (var k = 1; k <= 9; k++) { vl += '<s class="vl" data-k="' + k + '" style="left:' + (k * 10) + '%"></s>'; }
+      for (var h = 0; h < 24; h++) {
+        html += '<div class="tt-row"><span class="tt-hr">' + (h < 10 ? '0' : '') + h + '</span>';
+        for (var m = 0; m < 6; m++) { html += '<div class="tt-cell"><i>' + vl + '</i><b class="tt-badge"></b></div>'; }
+        html += '</div>';
+      }
+      tt.innerHTML = html;
+      var modal = document.getElementById('tt-modal'), sel = [], timer = null, auto = null;
+      var sx = 0, sy = 0, lx = 0, ly = 0, dragging = false;
+      var cells = Array.prototype.slice.call(tt.querySelectorAll('.tt-cell i')), anchor = 0;
+      function setRange(a, b) {
+        var lo = Math.min(a, b), hi = Math.max(a, b);
+        cells.forEach(function (el, i) { el.classList.toggle('sel', i >= lo && i <= hi); });
+        sel = cells.slice(lo, hi + 1);
+        renderList();
+      }
+      function deselect() {
+        sel.forEach(function (el) { el.classList.remove('sel'); });
+        sel = [];
+        modal.classList.remove('open');
+        tt.classList.remove('sel-open');
+      }
+      function add(el) {
+        if (!el || sel.indexOf(el) !== -1) { return; }
+        sel.push(el);
+        el.classList.add('sel');
+      }
+      function hit(x, y) {
+        var n = document.elementFromPoint(x, y);
+        var c = n && n.closest ? n.closest('.tt-cell') : null;
+        if (c && tt.contains(c)) { setRange(anchor, cells.indexOf(c.querySelector('i'))); }
+      }
+      function tick() {
+        var r = tt.getBoundingClientRect();
+        var bottom = Math.min(r.bottom, modal.getBoundingClientRect().top);
+        var dy = 0;
+        if (ly < r.top + 50) { dy = -8; } else if (ly > bottom - 50) { dy = 8; }
+        if (dy) { tt.scrollTop += dy; hit(lx, ly); }
+      }
+      function startDrag(el) {
+        anchor = cells.indexOf(el);
+        setRange(anchor, anchor);
+        dragging = true;
+        tt.classList.add('sel-open');
+        modal.classList.add('open', 'dragging');
+        try { if (navigator.vibrate) { navigator.vibrate(10); } } catch (e) {}
+        auto = setInterval(tick, 16);
+      }
+      function stop() {
+        clearTimeout(timer);
+        dragging = false;
+        clearInterval(auto);
+        auto = null;
+        modal.classList.remove('dragging');
+      }
+      document.addEventListener('pointerdown', function (e) {
+        if (modal.contains(e.target) || (e.target.closest && e.target.closest('#dl-sheet, #dl-back, #ax-actions, #ax-form, #ax-back'))) { return; }
+        stop();
+        deselect();
+        var c = e.target.closest ? e.target.closest('.tt-cell') : null;
+        if (!c || !tt.contains(c)) { return; }
+        sx = lx = e.clientX; sy = ly = e.clientY;
+        timer = setTimeout(function () { startDrag(c.querySelector('i')); }, 450);
+      }, true);
+      document.addEventListener('pointermove', function (e) {
+        lx = e.clientX; ly = e.clientY;
+        if (dragging) { hit(lx, ly); return; }
+        if (Math.abs(lx - sx) > 10 || Math.abs(ly - sy) > 10) { clearTimeout(timer); }
+      }, true);
+      document.addEventListener('pointerup', stop, true);
+      document.addEventListener('pointercancel', stop, true);
+      document.addEventListener('touchmove', function (e) {
+        if (dragging && e.cancelable) { e.preventDefault(); }
+      }, { passive: false });
+      tt.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      document.getElementById('tt-close').addEventListener('click', deselect);
+      var dlSheet = document.getElementById('dl-sheet'), dlBack = document.getElementById('dl-back');
+      var dlTitle = document.getElementById('dl-title'), dlMemo = document.getElementById('dl-memo'), dlSave = document.getElementById('dl-save');
+      var CHECK = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/><path d="M8 11l4 4L21 5"/></svg>';
+      function renderBadges() {
+        var cnt = new Array(144).fill(0);
+        readItems().forEach(function (it) {
+          for (var i = Math.max(0, it.lo); i <= Math.min(143, it.hi); i++) { cnt[i]++; }
+        });
+        cells.forEach(function (el, i) {
+          var b = el.parentNode.querySelector('.tt-badge');
+          b.innerHTML = cnt[i] ? cnt[i] + CHECK : '';
+        });
+      }
+      function fmt(m) { var mm = m % 60; return Math.floor(m / 60) + ':' + (mm < 10 ? '0' : '') + mm; }
+      function readItems() {
+        try { return JSON.parse(localStorage.getItem('done-list-v1') || '[]'); } catch (err) { return []; }
+      }
+      function renderList() {
+        var list = document.getElementById('tt-dl-list');
+        list.innerHTML = '';
+        if (!sel.length) { return; }
+        var lo = cells.indexOf(sel[0]), hi = cells.indexOf(sel[sel.length - 1]);
+        readItems().filter(function (it) { return !(it.lo > hi || it.hi < lo); })
+          .sort(function (a, b) { return a.lo - b.lo; })
+          .forEach(function (it) {
+            var li = document.createElement('li');
+            li.addEventListener('click', function () { axMode = 'done'; axId = it.id; axShow(axActions); });
+            var box = document.createElement('div');
+            var t = document.createElement('div'); t.className = 'todo-title'; t.textContent = it.title;
+            var tm = document.createElement('div'); tm.className = 'todo-time'; tm.textContent = fmt(it.lo * 10) + '\u2013' + fmt((it.hi + 1) * 10);
+            box.appendChild(t); box.appendChild(tm);
+            if (it.memo) { var m = document.createElement('div'); m.className = 'todo-memo'; m.textContent = it.memo; box.appendChild(m); }
+            li.appendChild(box);
+            list.appendChild(li);
+          });
+      }
+      function dlOpen(open) {
+        dlSheet.classList.toggle('open', open);
+        dlBack.classList.toggle('open', open);
+        if (open) {
+          dlTitle.value = ''; dlMemo.value = ''; dlSave.disabled = true;
+          setTimeout(function () { dlTitle.focus(); }, 300);
+        } else { dlTitle.blur(); dlMemo.blur(); }
+      }
+      document.querySelector('.tt-modal-pill .pill-add').addEventListener('click', function () { dlOpen(true); });
+      dlBack.addEventListener('click', function () { dlOpen(false); });
+      var bxDrawer = document.getElementById('bx-drawer'), bxBack = document.getElementById('bx-back');
+      function bxOpen(open) { bxDrawer.classList.toggle('open', open); bxBack.classList.toggle('open', open); }
+      document.getElementById('hamburger').addEventListener('click', function () { bxOpen(true); });
+      bxBack.addEventListener('click', function () { bxOpen(false); });
+      document.getElementById('bx-close').addEventListener('click', function () { bxOpen(false); });
+      var bxPage = document.getElementById('bx-page');
+      function renderArchive() {
+        var list = document.getElementById('bx-archive-list'), arc = [];
+        list.innerHTML = '';
+        try { arc = JSON.parse(localStorage.getItem('archive-v1') || '[]'); } catch (e) { arc = []; }
+        arc.forEach(function (it) {
+          var li = document.createElement('li');
+          var t = document.createElement('div'); t.className = 'todo-title'; t.textContent = it.title;
+          li.addEventListener('click', function () { axMode = 'archive'; axId = it.id; axShow(axActions); });
+          li.appendChild(t);
+          if (it.memo) { var m = document.createElement('div'); m.className = 'todo-memo'; m.textContent = it.memo; li.appendChild(m); }
+          list.appendChild(li);
+        });
+      }
+      document.getElementById('bx-archive').addEventListener('click', function () { renderArchive(); bxPage.classList.add('open'); });
+      var axMode = 'archive', axId = null, axBack = document.getElementById('ax-back'), axActions = document.getElementById('ax-actions'), axForm = document.getElementById('ax-form');
+      var axTitle = document.getElementById('ax-title'), axMemo = document.getElementById('ax-memo'), axSave = document.getElementById('ax-save');
+      function readArc() { try { return JSON.parse(localStorage.getItem('archive-v1') || '[]'); } catch (e) { return []; } }
+      function writeArc(a) { try { localStorage.setItem('archive-v1', JSON.stringify(a)); } catch (e) {} }
+      function axShow(el) {
+        document.getElementById('ax-edit').textContent = axMode === 'done' ? '투두 수정' : '보관함 수정';
+        document.getElementById('ax-delete').textContent = axMode === 'done' ? '투두 삭제' : '보관함 삭제';
+        axActions.classList.remove('open'); axForm.classList.remove('open');
+        el.classList.add('open'); axBack.classList.add('open');
+      }
+      function axHide() {
+        axActions.classList.remove('open'); axForm.classList.remove('open'); axBack.classList.remove('open');
+        axTitle.blur(); axMemo.blur();
+      }
+      axBack.addEventListener('click', axHide);
+      document.getElementById('ax-edit').addEventListener('click', function () {
+        var found = (axMode === 'done' ? readItems() : readArc()).filter(function (a) { return a.id === axId; })[0];
+        if (!found) { axHide(); return; }
+        axTitle.value = found.title; axMemo.value = found.memo || '';
+        axSave.disabled = !axTitle.value.trim();
+        axShow(axForm);
+        setTimeout(function () { axTitle.focus(); }, 300);
+      });
+      document.getElementById('ax-delete').addEventListener('click', function () {
+        if (axMode === 'done') {
+          try { localStorage.setItem('done-list-v1', JSON.stringify(readItems().filter(function (a) { return a.id !== axId; }))); } catch (e) {}
+          renderList();
+          renderBadges();
+        } else {
+          writeArc(readArc().filter(function (a) { return a.id !== axId; }));
+          renderArchive();
+        }
+        axHide();
+      });
+      axTitle.addEventListener('input', function () { axSave.disabled = !axTitle.value.trim(); });
+      axSave.addEventListener('click', function () {
+        var t = axTitle.value.trim();
+        if (!t) { return; }
+        if (axMode === 'done') {
+          var its = readItems();
+          its.forEach(function (a) { if (a.id === axId) { a.title = t; a.memo = axMemo.value; } });
+          try { localStorage.setItem('done-list-v1', JSON.stringify(its)); } catch (e) {}
+          renderList();
+        } else {
+          var arc = readArc();
+          arc.forEach(function (a) { if (a.id === axId) { a.title = t; a.memo = axMemo.value; } });
+          writeArc(arc);
+          renderArchive();
+        }
+        axHide();
+      });
+      document.getElementById('bx-page-back').addEventListener('click', function () { bxPage.classList.remove('open'); });
+      renderBadges();
+      dlTitle.addEventListener('input', function () { dlSave.disabled = !dlTitle.value.trim(); });
+      dlSave.addEventListener('click', function () {
+        var t = dlTitle.value.trim();
+        if (!t) { return; }
+        if (!sel.length) { dlOpen(false); return; }
+        var lo = cells.indexOf(sel[0]), hi = cells.indexOf(sel[sel.length - 1]);
+        var items = readItems();
+        items.push({ id: Date.now(), title: t, memo: dlMemo.value, lo: lo, hi: hi });
+        try { localStorage.setItem('done-list-v1', JSON.stringify(items)); } catch (err) {}
+        renderList();
+        renderBadges();
+        dlOpen(false);
+      });
+      var colors = {};
+      try { colors = JSON.parse(localStorage.getItem('done-colors-v1') || '{}'); } catch (e) { colors = {}; }
+      Object.keys(colors).forEach(function (k) { if (cells[k]) { cells[k].style.borderColor = colors[k]; } });
+      function paint() {
+        var d = new Date(), nm = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+        cells.forEach(function (el, i) {
+          var col = colors[i] || '#f0f0f0', f = Math.max(0, Math.min(1, (nm - i * 10) / 10));
+          if (f <= 0) { el.classList.remove('fl'); return; }
+          el.classList.add('fl');
+          el.style.setProperty('--fill', col);
+          el.style.setProperty('--f', (f * 100) + '%');
+        });
+      }
+      paint();
+      setInterval(paint, 10000);
+      modal.addEventListener('click', function (e) {
+        var chip = e.target.closest ? e.target.closest('.tt-chip') : null;
+        if (!chip || !sel.length) { return; }
+        var col = chip.querySelector('i').style.backgroundColor;
+        sel.forEach(function (el) { el.style.borderColor = col; colors[cells.indexOf(el)] = col; });
+        try { localStorage.setItem('done-colors-v1', JSON.stringify(colors)); } catch (err) {}
+        paint();
+        deselect();
+      });
+      window.__doneRefresh = function () {
+        try { colors = JSON.parse(localStorage.getItem('done-colors-v1') || '{}'); } catch (e) { colors = {}; }
+        cells.forEach(function (el, i) { el.style.borderColor = colors[i] || ''; });
+        paint();
+        renderBadges();
+        renderList();
+        renderArchive();
+      };
+    })();
+  </script>
+<script>
+(function () {
+  var SEL = '.sheet, .ax-sheet, #bx-page, #sx-page, #bx-drawer, #dl-sheet, #tt-modal';
+  var depth = 0, skip = 0, fromBack = false;
+  function count() {
+    var n = 0;
+    document.querySelectorAll(SEL).forEach(function (el) { if (el.classList.contains('open')) { n++; } });
+    return n;
+  }
+  function sync() {
+    var n = count();
+    if (n > depth) {
+      for (var i = depth; i < n; i++) { try { history.pushState({ ov: i + 1 }, ''); } catch (e) {} }
+    } else if (n < depth && !fromBack) {
+      skip = 1;
+      try { history.go(-(depth - n)); } catch (e) { skip = 0; }
+    }
+    depth = n;
+  }
+  function press(sel) { var el = document.querySelector(sel); if (el) { el.click(); } }
+  function closeTop() {
+    if (document.querySelector('.ax-sheet.open')) { press('#ax-back'); }
+    else if (document.querySelector('#sx-page.open')) { press('#sx-page-back'); }
+    else if (document.querySelector('#bx-page.open')) { press('#bx-page-back'); }
+    else if (document.querySelector('#bx-drawer.open')) { press('#bx-back'); }
+    else if (document.querySelector('#dl-sheet.open')) { press('#dl-back'); }
+    else if (document.querySelector('.sheet.open')) { press('#backdrop'); }
+    else if (document.querySelector('#tt-modal.open')) { press('#tt-close'); }
+  }
+  window.addEventListener('popstate', function () {
+    if (skip > 0) { skip--; return; }
+    if (depth === 0) { return; }
+    fromBack = true;
+    closeTop();
+    sync();
+    fromBack = false;
+  });
+  new MutationObserver(sync).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+})();
+(function () {
+  var map = {
+    'todo-title': 'todo-save', 'todo-memo': 'todo-save', 'time-start': 'todo-save', 'time-end': 'todo-save',
+    'dl-title': 'dl-save', 'dl-memo': 'dl-save',
+    'ax-title': 'ax-save', 'ax-memo': 'ax-save'
+  };
+  Object.keys(map).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) { return; }
+    el.setAttribute('enterkeyhint', 'done');
+    el.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || e.shiftKey) { return; }
+      e.preventDefault();
+      var btn = document.getElementById(map[id]);
+      if (btn && !btn.disabled) { btn.click(); }
+    });
+  });
+})();
+</script>
+<script>
+(function () {
+  var KURL = 'sync-url-v1', KST = 'sync-state-v1';
+  var URL_RE = /^https:\/\/script\.google\.com\/.+\/exec(\?.*)?$/;
+  var KINDS = {
+    todos: { kf: 'id', fields: ['id', 'rid', 'cat', 'date', 'title', 'memo', 'start', 'end', 'done', 'order'] },
+    archive: { kf: 'id', fields: ['id', 'title', 'memo'] },
+    done_list: { kf: 'id', fields: ['id', 'title', 'memo', 'lo', 'hi'] },
+    done_colors: { kf: 'slot', fields: ['slot', 'color'] }
+  };
+  var page = document.getElementById('sx-page');
+  var urlEl = document.getElementById('sx-url');
+  var runEl = document.getElementById('sx-run');
+  var statusEl = document.getElementById('sx-status');
+  var lastEl = document.getElementById('sx-last');
+  var dotEl = document.getElementById('sx-dot');
+  var busy = false;
+
+  function setDot(s) { dotEl.className = 'sx-dot ' + s; }
+  function readLS(k, d) { try { var v = JSON.parse(localStorage.getItem(k)); return v === null || v === undefined ? d : v; } catch (e) { return d; } }
+  function writeLS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function sig() {
+    return ['todos-v1', 'archive-v1', 'done-list-v1', 'done-colors-v1'].map(function (k) {
+      try { return localStorage.getItem(k) || ''; } catch (e) { return ''; }
+    }).join('|');
+  }
+  function hash(kind, it) { return JSON.stringify(KINDS[kind].fields.map(function (f) { return it[f]; })); }
+  function num(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
+  function notDeleted(o) { return !o.deleted; }
+  function fmtTime(ms) {
+    var d = new Date(ms);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function dragging() { return typeof drag !== 'undefined' && drag; }
+
+  function toNorm(t, i) {
+    return { id: Number(t.id), rid: t.rid ? Number(t.rid) : '', cat: t.cat, date: t.date, title: t.title, memo: t.memo || '', start: t.start || '', end: t.end || '', done: !!t.done, order: i };
+  }
+  function toTodo(o) {
+    var t = { id: Number(o.id), cat: String(o.cat), date: String(o.date), title: String(o.title), memo: o.memo ? String(o.memo) : '', start: o.start ? String(o.start) : '', end: o.end ? String(o.end) : '', done: !!o.done };
+    if (o.rid !== '' && o.rid !== null && o.rid !== undefined) { t.rid = Number(o.rid); }
+    return t;
+  }
+
+  function collect() {
+    var arc = readLS('archive-v1', []), dl = readLS('done-list-v1', []), col = readLS('done-colors-v1', {});
+    return {
+      todos: todos.map(function (t, i) { return toNorm(t, i); }),
+      archive: arc.map(function (a) { return { id: Number(a.id), title: a.title, memo: a.memo || '' }; }),
+      done_list: dl.map(function (a) { return { id: Number(a.id), title: a.title, memo: a.memo || '', lo: Number(a.lo), hi: Number(a.hi) }; }),
+      done_colors: Object.keys(col).filter(function (k) { return col[k]; }).map(function (k) { return { slot: Number(k), color: col[k] }; })
+    };
+  }
+
+  // 마지막 동기화 이후 바뀐 항목은 updatedAt을 지금으로, 사라진 항목은 삭제 표시(tombstone)로 만든다.
+  function stamp(kind, items, snap, now) {
+    var kf = KINDS[kind].kf, out = [], seen = {};
+    items.forEach(function (it) {
+      var k = String(it[kf]);
+      seen[k] = 1;
+      var p = snap[k];
+      it.updatedAt = p && p.h === hash(kind, it) ? p.u : now;
+      it.deleted = false;
+      out.push(it);
+    });
+    Object.keys(snap).forEach(function (k) {
+      if (!seen[k]) {
+        var t = {};
+        Object.keys(snap[k].item).forEach(function (f) { t[f] = snap[k].item[f]; });
+        t.deleted = true;
+        t.updatedAt = now;
+        out.push(t);
+      }
+    });
+    return out;
+  }
+
+  function buildSnap(kind, items) {
+    var kf = KINDS[kind].kf, m = {};
+    items.forEach(function (it) {
+      var item = {};
+      KINDS[kind].fields.forEach(function (f) { item[f] = it[f]; });
+      m[String(it[kf])] = { h: hash(kind, it), u: num(it.updatedAt), item: item };
+    });
+    return m;
+  }
+
+  function sameList(kind, a, b) {
+    if (a.length !== b.length) { return false; }
+    for (var i = 0; i < a.length; i++) { if (hash(kind, a[i]) !== hash(kind, b[i])) { return false; } }
+    return true;
+  }
+
+  function byId(a, b) { return num(a.id) - num(b.id); }
+
+  // 서버에서 받은 결과가 로컬과 다를 때만 저장·다시 그린다 (3초마다 돌아도 화면이 깜빡이거나 터치가 끊기지 않도록).
+  function apply(j) {
+    var st = { last: Date.now(), snap: {} };
+
+    var live = (j.todos || []).filter(notDeleted).sort(function (a, b) { return (num(a.order) - num(b.order)) || byId(a, b); });
+    var newTodos = live.map(toTodo);
+    var tn = newTodos.map(function (t, i) { var n = toNorm(t, i); n.updatedAt = num(live[i].updatedAt); return n; });
+    st.snap.todos = buildSnap('todos', tn);
+
+    var arcLive = (j.archive || []).filter(notDeleted).sort(byId);
+    var arc = arcLive.map(function (o) { return { id: Number(o.id), title: String(o.title), memo: o.memo ? String(o.memo) : '' }; });
+    st.snap.archive = buildSnap('archive', arc.map(function (a, i) { return { id: a.id, title: a.title, memo: a.memo, updatedAt: num(arcLive[i].updatedAt) }; }));
+
+    var dlLive = (j.done_list || []).filter(notDeleted).sort(byId);
+    var dl = dlLive.map(function (o) { return { id: Number(o.id), title: String(o.title), memo: o.memo ? String(o.memo) : '', lo: num(o.lo), hi: num(o.hi) }; });
+    st.snap.done_list = buildSnap('done_list', dl.map(function (d, i) { return { id: d.id, title: d.title, memo: d.memo, lo: d.lo, hi: d.hi, updatedAt: num(dlLive[i].updatedAt) }; }));
+
+    var colors = {}, colItems = [];
+    (j.done_colors || []).forEach(function (o) {
+      if (o.color === '' || o.color === null || o.color === undefined) { return; }
+      colItems.push({ slot: Number(o.slot), color: String(o.color), updatedAt: num(o.updatedAt) });
+    });
+    colItems.sort(function (a, b) { return a.slot - b.slot; });
+    colItems.forEach(function (c) { colors[c.slot] = c.color; });
+    st.snap.done_colors = buildSnap('done_colors', colItems);
+
+    var cur = collect();
+    var changed = !sameList('todos', cur.todos, tn) || !sameList('archive', cur.archive, arc) ||
+      !sameList('done_list', cur.done_list, dl) || !sameList('done_colors', cur.done_colors, colItems);
+
+    if (changed) {
+      todos = newTodos;
+      saveTodos();
+      try { localStorage.setItem('archive-v1', JSON.stringify(arc)); } catch (e) {}
+      try { localStorage.setItem('done-list-v1', JSON.stringify(dl)); } catch (e) {}
+      try { localStorage.setItem('done-colors-v1', JSON.stringify(colors)); } catch (e) {}
+    }
+    writeLS(KST, st);
+    if (changed) {
+      renderTodos();
+      if (window.__doneRefresh) { window.__doneRefresh(); }
+    }
+    return { todos: newTodos.length, archive: arc.length, done: dl.length, last: st.last };
+  }
+
+  function setStatus(msg, err) {
+    statusEl.textContent = msg;
+    statusEl.className = err ? 'err' : '';
+  }
+  function showLast() {
+    var st = readLS(KST, null);
+    lastEl.textContent = st && st.last ? '마지막 동기화: ' + fmtTime(st.last) : '아직 동기화한 적이 없습니다.';
+  }
+  function updateBtn() { runEl.disabled = busy || urlEl.value.trim() === ''; }
+
+  function run(auto) {
+    if (busy) { return; }
+    var url = urlEl.value.trim();
+    if (!URL_RE.test(url)) {
+      setDot('off');
+      if (!auto) { setStatus('Apps Script 웹앱 URL(https://script.google.com/…/exec)을 확인해 주세요.', true); }
+      return;
+    }
+    if (dragging()) { return; }
+    if (navigator.onLine === false) {
+      setDot('off');
+      if (!auto) { setStatus('오프라인 상태입니다.', true); }
+      return;
+    }
+    busy = true;
+    setDot('busy');
+    if (!auto) { runEl.textContent = '동기화 중…'; setStatus('', false); }
+    updateBtn();
+
+    var st = readLS(KST, null) || {};
+    var snap = st.snap || {};
+    var now = Date.now();
+    var data = collect();
+    var before = sig();
+    var payload = { action: 'sync' };
+    Object.keys(KINDS).forEach(function (kind) { payload[kind] = stamp(kind, data[kind], snap[kind] || {}, now); });
+
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), redirect: 'follow' })
+      .then(function (r) {
+        if (!r.ok) { throw new Error('서버 응답 오류 (' + r.status + ')'); }
+        return r.text();
+      })
+      .then(function (txt) {
+        var j;
+        try { j = JSON.parse(txt); } catch (e) { throw new Error('응답을 읽을 수 없습니다. 웹앱 배포의 액세스 권한이 "모든 사용자"인지 확인해 주세요.'); }
+        if (!j || !j.ok) { throw new Error((j && j.error) || '서버 오류'); }
+        if (sig() !== before || dragging()) { var ce = new Error('동기화 중 데이터가 바뀌어 이번 결과는 반영하지 않았습니다.'); ce.changed = true; throw ce; }
+        var r = apply(j);
+        setDot('ok');
+        setStatus('동기화 완료\n투두 ' + r.todos + ' · 보관함 ' + r.archive + ' · done ' + r.done, false);
+      })
+      .catch(function (e) {
+        setDot('off');
+        if (e && e.changed) { if (!auto) { setStatus(e.message, true); } return; }
+        var m = e && e.message ? e.message : String(e);
+        if (/Failed to fetch|NetworkError|Load failed/i.test(m)) { m = '네트워크 오류입니다. 인터넷 연결과 웹앱 URL·액세스 권한을 확인해 주세요.'; }
+        setStatus(m, true);
+      })
+      .then(function () {
+        busy = false;
+        runEl.textContent = '동기화';
+        updateBtn();
+        showLast();
+      });
+  }
+
+  var saved = readLS(KURL, '');
+  urlEl.value = typeof saved === 'string' ? saved : '';
+  urlEl.addEventListener('input', function () { writeLS(KURL, urlEl.value.trim()); updateBtn(); });
+  runEl.addEventListener('click', function () { run(false); });
+  document.getElementById('bx-sync').addEventListener('click', function () {
+    setStatus('', false);
+    showLast();
+    updateBtn();
+    page.classList.add('open');
+  });
+  document.getElementById('sx-page-back').addEventListener('click', function () { page.classList.remove('open'); });
+  updateBtn();
+
+  // 3초마다 자동 동기화 (화면이 보일 때만)
+  setInterval(function () { if (!document.hidden) { run(true); } }, 3000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { run(true); } });
+  window.addEventListener('online', function () { run(true); });
+  window.addEventListener('offline', function () { setDot('off'); });
+  setTimeout(function () { run(true); }, 500);
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
